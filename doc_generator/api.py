@@ -164,6 +164,9 @@ def generate_si_docx(quotation_name: str) -> dict:
         if logo_url:
             if logo_url.startswith("/"):
                 logo_url = frappe.utils.get_url(logo_url)
+            from urllib.parse import urlsplit, urlunsplit, quote
+            parts = urlsplit(logo_url)
+            logo_url = urlunsplit(parts._replace(path=quote(parts.path, safe="/")))
             suffix = ".webp" if "webp" in logo_url else ".png"
             req = urllib.request.Request(logo_url, headers={"User-Agent": "Mozilla/5.0"})
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -172,8 +175,11 @@ def generate_si_docx(quotation_name: str) -> dict:
                 lp = logo_cell.paragraphs[0]
                 lp.alignment = WD_ALIGN_PARAGRAPH.LEFT
                 lp.add_run().add_picture(tmp.name, width=Inches(1.8))
-    except Exception:
-        pass
+    except Exception as e:
+        frappe.log_error(
+            title="SI Doc Generator: Logo Failed",
+            message=f"logo_url={logo_url}\nError: {frappe.get_traceback()}"
+        )
 
     info_cell = header_tbl.rows[0].cells[1]
     info_cell.width = Inches(4.75)
@@ -339,7 +345,7 @@ def generate_si_docx(quotation_name: str) -> dict:
     fp = document.add_paragraph()
     add_hr(fp, color="CCCCCC")
     fp.paragraph_format.space_before = Pt(10)
-    r = fp.add_run(f"{settings['footer_text']}  ·  {doc.company}  ·  {frappe.utils.now()}")
+    r = fp.add_run(f"{settings['footer_text']}  ·  {doc.company}  ·  {frappe.utils.now().split('.')[0]}")
     r.font.size      = Pt(8)
     r.font.color.rgb = MID_GREY
     fp.alignment     = WD_ALIGN_PARAGRAPH.CENTER
